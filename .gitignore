@@ -1,0 +1,9 @@
+.DS_Store
+/doc
+/_build
+/cover
+/deps
+erl_crash.dump
+*.ez
+*.swp
+graphs/*
