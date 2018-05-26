@@ -1,40 +1,40 @@
-defmodule FinanceTest do
+defmodule ExXirrTest do
   use ExUnit.Case, async: true
-  doctest Finance
+  doctest ExXirr
 
   describe "xirr/2" do
     test "positive and negative flow in the same day" do
       d = [{2014, 04, 15}, {2014, 04, 15}, {2014, 10, 19}]
       v = [-10000.0, 10000.0, 500.0]
 
-      assert Finance.xirr(d, v) ==
+      assert ExXirr.xirr(d, v) ==
                {:error, "Values should have at least one positive or negative value."}
     end
 
     test "impossible returns on investments" do
       d = [{2015, 11, 1}, {2015, 10, 1}, {2015, 6, 1}]
       v = [-800_000, -2_200_000, 1_000_000]
-      assert Finance.xirr(d, v) == {:ok, 21.118359}
+      assert ExXirr.xirr(d, v) == {:ok, 21.118359}
     end
 
     test "bad investment" do
       d = [{1985, 1, 1}, {1990, 1, 1}, {1995, 1, 1}]
       v = [1000, -600, -200]
-      assert Finance.xirr(d, v) == {:ok, -0.034592}
+      assert ExXirr.xirr(d, v) == {:ok, -0.034592}
     end
 
     test "repeated cashflow" do
       v = [1000.0, 2000.0, -2000.0, -4000.0]
       d = [{2011, 12, 07}, {2011, 12, 07}, {2013, 05, 21}, {2013, 05, 21}]
 
-      assert Finance.xirr(d, v) == {:ok, 0.610359}
+      assert ExXirr.xirr(d, v) == {:ok, 0.610359}
     end
 
     test "ok investment" do
       v = [1000.0, -600.0, -6000.0]
       d = [{1985, 1, 1}, {1990, 1, 1}, {1995, 1, 1}]
 
-      assert Finance.xirr(d, v) == {:ok, 0.225683}
+      assert ExXirr.xirr(d, v) == {:ok, 0.225683}
     end
 
     test "long investment" do
@@ -112,7 +112,7 @@ defmodule FinanceTest do
         {2013, 05, 21}
       ]
 
-      assert Finance.xirr(d, v) == {:ok, 0.08006}
+      assert ExXirr.xirr(d, v) == {:ok, 0.08006}
     end
 
     test "wrong size" do
@@ -127,7 +127,7 @@ defmodule FinanceTest do
         500.0
       ]
 
-      assert Finance.xirr(d, v) == {:error, "Date and Value collections must have the same size"}
+      assert ExXirr.xirr(d, v) == {:error, "Date and Value collections must have the same size"}
     end
 
     test "wrong values" do
@@ -141,7 +141,7 @@ defmodule FinanceTest do
         500.0
       ]
 
-      assert Finance.xirr(d, v) ==
+      assert ExXirr.xirr(d, v) ==
                {:error, "Values should have at least one positive or negative value."}
     end
 
@@ -149,13 +149,13 @@ defmodule FinanceTest do
       d = [{2008, 2, 5}, {2008, 7, 5}, {2009, 1, 5}]
       v = [2750.0, -1000.0, -2000.0]
 
-      assert Finance.xirr(d, v) == {:ok, 0.123631}
+      assert ExXirr.xirr(d, v) == {:ok, 0.123631}
     end
 
     test "fail when the rate is too large" do
       d = [{2017, 1, 1}, {2017, 1, 5}]
       v = [10000, -11000]
-      assert Finance.xirr(d, v) == {:error, "Unable to converge"}
+      assert ExXirr.xirr(d, v) == {:error, "Unable to converge"}
     end
   end
 end

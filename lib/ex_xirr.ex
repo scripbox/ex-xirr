@@ -1,4 +1,4 @@
-defmodule Finance do
+defmodule ExXirr do
   @moduledoc """
   Library to calculate XIRR through the Newton Raphson method.
   """
@@ -41,7 +41,7 @@ defmodule Finance do
   @doc """
     iex> d = [{1985, 1, 1}, {1990, 1, 1}, {1995, 1, 1}]
     iex> v = [1000, -600, -200]
-    iex> Finance.xirr(d,v)
+    iex> ExXirr.xirr(d,v)
     {:ok, -0.034592}
   """
   @spec xirr([Date.t()], [number]) :: float
@@ -89,11 +89,13 @@ defmodule Finance do
     end
   end
 
+  @spec compact_flow(list(), Date.t()) :: tuple()
   defp compact_flow(dates_values, min_date) do
     flow = Enum.reduce(dates_values, %{}, &organize_value(&1, &2, min_date))
     {Map.keys(flow), Map.values(flow), Enum.filter(flow, &(elem(&1, 1) != 0))}
   end
 
+  @spec organize_value(tuple(), map(), Date.t()) :: map()
   defp organize_value(date_value, dict, min_date) do
     {date, value} = date_value
 
@@ -105,6 +107,7 @@ defmodule Finance do
     Map.update(dict, fraction, value, &(value + &1))
   end
 
+  @spec verify_flow(list(float())) :: boolean()
   defp verify_flow(values) do
     {min, max} = Enum.min_max(values)
     min < 0 && max > 0
@@ -119,6 +122,7 @@ defmodule Finance do
     Float.round(rate, 6)
   end
 
+  @spec reduce_date_values(list(), float()) :: tuple()
   defp reduce_date_values(dates_values, rate) do
     calculated_xirr =
       dates_values
@@ -149,6 +153,7 @@ defmodule Finance do
     {calculated_xirr, calculated_dxirr}
   end
 
+  @spec calculate(atom(), list(), float(), float(), integer()) :: {:ok, float()} | {:error, String.t()}
   defp calculate(:xirr, _, 0.0, rate, _), do: {:ok, Float.round(rate, 6)}
   defp calculate(:xirr, _, _, -1.0, _), do: {:error, "Could not converge"}
   defp calculate(:xirr, _, _, _, 300), do: {:error, "I give up"}
@@ -164,9 +169,7 @@ defmodule Finance do
       end
 
     diff = Kernel.abs(new_rate - rate)
-
     diff = if diff < @max_error, do: 0.0
-
     tries = tries + 1
     calculate(:xirr, dates_values, diff, new_rate, tries)
   end

@@ -1,10 +1,10 @@
 defmodule BasicBench do
   use Benchfella
 
-  bench "calculate xirr" do
+  bench "short investment" do
     d = [{2012, 5, 29}, {2015, 5, 29}]
     v = [-20000, 40000]
-    Finance.xirr(d,v)
+    ExXirr.xirr(d,v)
   end
 
   bench "long investment" do
@@ -22,6 +22,6 @@ defmodule BasicBench do
           {2013,03,28},{2013,03,28},{2013,05,21},{2013,05,21},{2013,05,21},{2013,05,21},{2013,05,21},{2013,05,21},
           {2013,05,21},{2013,05,21}
         ]
-    Finance.xirr(d,v)
+    ExXirr.xirr(d,v)
   end
 end
