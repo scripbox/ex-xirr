@@ -1,16 +1,19 @@
-defmodule Finance.Mixfile do
+defmodule ExXirr.Mixfile do
   use Mix.Project
 
   def project do
     [
-      app: :finance,
-      version: "0.0.2",
-      elixir: "~> 1.1",
+      app: :ex_xirr,
+      version: "1.0.0",
+      elixir: "~> 1.6",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
-      description:
-        "A library to calculate Xirr through the bisection method using parallel processes.",
+      description: description(),
       test_coverage: [tool: ExCoveralls],
+      docs: [
+        main: "readme",
+        extras: ["README.md"]
+      ],
       preferred_cli_env: [
         coveralls: :test,
         "coveralls.detail": :test,
@@ -26,12 +29,15 @@ defmodule Finance.Mixfile do
     [applications: [:logger]]
   end
 
+  defp description do
+    "A library to calculate Xirr using the Newton method using parallel processes."
+  end
   defp package do
     [
-      files: ["lib", "priv", "mix.exs", "README*"],
-      maintainers: ["Roberto Trevisan"],
+      files: ["lib", "bench", "mix.exs", "README*"],
+      maintainers: ["Shubham Gupta"],
       licenses: ["MIT"],
-      links: %{"GitHub" => "https://github.com/tubedude/finance-elixir"}
+      links: %{"GitHub" => "https://github.com/scripbox/ex-elixir"}
     ]
   end
 
