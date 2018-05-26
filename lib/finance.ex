@@ -3,16 +3,14 @@ defmodule Finance do
   Library to calculate XIRR through the Newton Raphson method.
   """
 
-  @type date :: Date.t()
-
   @max_error 1.0e-3
   @days_in_a_year 365
 
   defp pmap(collection, function) do
-    me = self
+    me = self()
 
     collection
-    |> Enum.map(fn element -> spawn_link(fn -> send(me, {self, function.(element)}) end) end)
+    |> Enum.map(fn element -> spawn_link(fn -> send(me, {self(), function.(element)}) end) end)
     |> Enum.map(fn pid ->
       receive do
         {^pid, result} -> result
@@ -46,7 +44,7 @@ defmodule Finance do
     iex> Finance.xirr(d,v)
     {:ok, -0.034592}
   """
-  @spec xirr([date], [number]) :: float
+  @spec xirr([Date.t()], [number]) :: float
   def xirr(dates, values) when length(dates) != length(values) do
     {:error, "Date and Value collections must have the same size"}
   end
@@ -76,7 +74,7 @@ defmodule Finance do
   end
 
   @spec absolute_rate(float(), integer()) :: {:ok, float()} | {:error, String.t()}
-  def absolute_rate(0, days), do: {:error, "Rate is 0"}
+  def absolute_rate(0, _), do: {:error, "Rate is 0"}
 
   def absolute_rate(rate, days) do
     try do
@@ -104,7 +102,7 @@ defmodule Finance do
       den: 365.0
     }
 
-    Dict.update(dict, fraction, value, &(value + &1))
+    Map.update(dict, fraction, value, &(value + &1))
   end
 
   defp verify_flow(values) do
@@ -112,7 +110,7 @@ defmodule Finance do
     min < 0 && max > 0
   end
 
-  @spec guess_rate([date], [number]) :: float
+  @spec guess_rate([Date.t()], [number]) :: float
   defp guess_rate(dates, values) do
     {min_value, max_value} = Enum.min_max(values)
     period = 1 / (length(dates) - 1)
@@ -122,10 +120,8 @@ defmodule Finance do
   end
 
   defp reduce_date_values(dates_values, rate) do
-    list = Dict.to_list(dates_values)
-
     calculated_xirr =
-      list
+      dates_values
       |> pmap(fn x ->
         {
           elem(x, 0),
@@ -138,7 +134,7 @@ defmodule Finance do
       |> Float.round(6)
 
     calculated_dxirr =
-      list
+      dates_values
       |> pmap(fn x ->
         {
           elem(x, 0),
@@ -160,21 +156,18 @@ defmodule Finance do
   defp calculate(:xirr, dates_values, _, rate, tries) do
     {xirr, dxirr} = reduce_date_values(dates_values, rate)
 
-    if dxirr < 0.0 do
-      new_rate = rate
-    else
-      new_rate = rate - xirr / dxirr
-    end
+    new_rate =
+      if dxirr < 0.0 do
+        rate
+      else
+        rate - xirr / dxirr
+      end
 
     diff = Kernel.abs(new_rate - rate)
 
-    if diff < @max_error do
-      diff = 0.0
-    end
+    diff = if diff < @max_error, do: 0.0
 
     tries = tries + 1
     calculate(:xirr, dates_values, diff, new_rate, tries)
   end
 end
-
-# defmodule Finance
