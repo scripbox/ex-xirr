@@ -8,9 +8,12 @@ defmodule ExXirr.Mixfile do
       elixir: "~> 1.6",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
-      description:
-        "A library to calculate Xirr using the Newton method using parallel processes.",
+      description: description(),
       test_coverage: [tool: ExCoveralls],
+      docs: [
+        main: "readme",
+        extras: ["README.md"]
+      ],
       preferred_cli_env: [
         coveralls: :test,
         "coveralls.detail": :test,
@@ -26,6 +29,9 @@ defmodule ExXirr.Mixfile do
     [applications: [:logger]]
   end
 
+  defp description do
+    "A library to calculate Xirr using the Newton method using parallel processes."
+  end
   defp package do
     [
       files: ["lib", "priv", "mix.exs", "README*"],

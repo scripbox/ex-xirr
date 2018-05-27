@@ -41,5 +41,4 @@ defmodule Fraction do
   def to_float(%Fraction{} = fraction) do
     fraction.num / fraction.den
   end
-
 end

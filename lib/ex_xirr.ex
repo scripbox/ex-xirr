@@ -1,6 +1,7 @@
 defmodule ExXirr do
   @moduledoc """
-  Library to calculate XIRR through the Newton Raphson method.
+  Library to calculate XIRR and absolute rate of return
+  through the Newton Raphson method.
   """
 
   @max_error 1.0e-3
@@ -9,12 +10,10 @@ defmodule ExXirr do
   # Public API
 
   @doc """
-    Function to calculate the rate of return for a given array of
-    dates and investments/values.
+  Function to calculate the rate of return for a given array of
+  dates and values.
 
-    Returns `{:ok, xirr}` or `{:error, msg}`
-
-    ## Examples
+  ## Examples
 
       iex> d = [{1985, 1, 1}, {1990, 1, 1}, {1995, 1, 1}]
       iex> v = [1000, -600, -200]
@@ -50,6 +49,18 @@ defmodule ExXirr do
       {:error, 0.0}
   end
 
+  @doc """
+  Function to calculate the absolute rate of return for a given array
+  of dates and values.
+
+  ## Examples
+
+      iex> d = [{1985, 1, 1}, {1990, 1, 1}, {1995, 1, 1}]
+      iex> v = [1000, -600, -200]
+      iex> {:ok, rate} = ExXirr.xirr(d,v)
+      iex> ExXirr.absolute_rate(rate, 50)
+      {:ok, -0.48}
+  """
   @spec absolute_rate(float(), integer()) :: {:ok, float()} | {:error, String.t()}
   def absolute_rate(0, _), do: {:error, "Rate is 0"}
 
@@ -165,7 +176,8 @@ defmodule ExXirr do
     {calculated_xirr, calculated_dxirr}
   end
 
-  @spec calculate(atom(), list(), float(), float(), integer()) :: {:ok, float()} | {:error, String.t()}
+  @spec calculate(atom(), list(), float(), float(), integer()) ::
+          {:ok, float()} | {:error, String.t()}
   defp calculate(:xirr, _, 0.0, rate, _), do: {:ok, Float.round(rate, 6)}
   defp calculate(:xirr, _, _, -1.0, _), do: {:error, "Could not converge"}
   defp calculate(:xirr, _, _, _, 300), do: {:error, "I give up"}
