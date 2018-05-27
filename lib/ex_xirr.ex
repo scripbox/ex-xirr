@@ -6,43 +6,20 @@ defmodule ExXirr do
   @max_error 1.0e-3
   @days_in_a_year 365
 
-  defp pmap(collection, function) do
-    me = self()
-
-    collection
-    |> Enum.map(fn element -> spawn_link(fn -> send(me, {self(), function.(element)}) end) end)
-    |> Enum.map(fn pid ->
-      receive do
-        {^pid, result} -> result
-      end
-    end)
-  end
-
-  @spec power_of(float(), Fraction.t()) :: float()
-  def power_of(rate, fraction) when rate < 0 do
-    :math.pow(-rate, Fraction.to_float(fraction)) * :math.pow(-1, fraction.num)
-  end
-
-  def power_of(rate, fraction) do
-    :math.pow(rate, Fraction.to_float(fraction))
-  end
-
-  @spec xirr_reduction({Fraction.t(), float(), float()}) :: float()
-  defp xirr_reduction({fraction, value, rate}) do
-    value / power_of(1.0 + rate, fraction)
-  end
-
-  @spec dxirr_reduction({Fraction.t(), float(), float()}) :: float()
-  defp dxirr_reduction({fraction, value, rate}) do
-    -value * Fraction.to_float(fraction) * power_of(1.0 + rate, Fraction.negative(fraction)) *
-      :math.pow(1.0 + rate, -1)
-  end
+  # Public API
 
   @doc """
-    iex> d = [{1985, 1, 1}, {1990, 1, 1}, {1995, 1, 1}]
-    iex> v = [1000, -600, -200]
-    iex> ExXirr.xirr(d,v)
-    {:ok, -0.034592}
+    Function to calculate the rate of return for a given array of
+    dates and investments/values.
+
+    Returns `{:ok, xirr}` or `{:error, msg}`
+
+    ## Examples
+
+      iex> d = [{1985, 1, 1}, {1990, 1, 1}, {1995, 1, 1}]
+      iex> v = [1000, -600, -200]
+      iex> ExXirr.xirr(d,v)
+      {:ok, -0.034592}
   """
   @spec xirr([Date.t()], [number]) :: float
   def xirr(dates, values) when length(dates) != length(values) do
@@ -87,6 +64,41 @@ defmodule ExXirr do
       _ ->
         {:error, 0.0}
     end
+  end
+
+  # Private API
+
+  @spec pmap(list(tuple()), fun()) :: Enum.t()
+  defp pmap(collection, function) do
+    me = self()
+
+    collection
+    |> Enum.map(fn element -> spawn_link(fn -> send(me, {self(), function.(element)}) end) end)
+    |> Enum.map(fn pid ->
+      receive do
+        {^pid, result} -> result
+      end
+    end)
+  end
+
+  @spec power_of(float(), Fraction.t()) :: float()
+  defp power_of(rate, fraction) when rate < 0 do
+    :math.pow(-rate, Fraction.to_float(fraction)) * :math.pow(-1, fraction.num)
+  end
+
+  defp power_of(rate, fraction) do
+    :math.pow(rate, Fraction.to_float(fraction))
+  end
+
+  @spec xirr_reduction({Fraction.t(), float(), float()}) :: float()
+  defp xirr_reduction({fraction, value, rate}) do
+    value / power_of(1.0 + rate, fraction)
+  end
+
+  @spec dxirr_reduction({Fraction.t(), float(), float()}) :: float()
+  defp dxirr_reduction({fraction, value, rate}) do
+    -value * Fraction.to_float(fraction) * power_of(1.0 + rate, Fraction.negative(fraction)) *
+      :math.pow(1.0 + rate, -1)
   end
 
   @spec compact_flow(list(), Date.t()) :: tuple()
