@@ -1,4 +1,4 @@
-defmodule BasicBench do
+defmodule XirrComparisonBench do
   use Benchfella
 
   @v [
