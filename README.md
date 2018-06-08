@@ -37,6 +37,8 @@ The package can be installed as:
     MIX_ENV=test mix test
     ```
 
+## Benchmarks
+
 - We use benchfella for the benchmark tests. Run it using the following
     ```
     MIX_ENV=test mix bench
@@ -44,6 +46,8 @@ The package can be installed as:
     # Generate graphs of the above runs
     MIX_ENV=test mix bench.graph
     ```
+- The report is available [here](http://htmlpreview.github.io/?https://github.com/scripbox/ex-xirr/blob/master/bench/graphs/index.html)
+
 ## Credits
 
 This application is built on the fantastic [finance-elixir](https://github.com/tubedude/finance-elixir) package. Many thanks to [tubedude](https://github.com/tubedude) for his work.
