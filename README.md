@@ -39,14 +39,11 @@ The package can be installed as:
 
 ## Benchmarks
 
-- We use benchfella for the benchmark tests. Run it using the following
+- We use benchee for the benchmark tests. Run it using the following
     ```
-    MIX_ENV=test mix bench
-    MIX_ENV=test mix bench
-    # Generate graphs of the above runs
-    MIX_ENV=test mix bench.graph
+    mix run test/xirr_comparison_bench.exs
     ```
-- The report is available [here](http://htmlpreview.github.io/?https://github.com/scripbox/ex-xirr/blob/master/bench/graphs/index.html)
+- The reports are available in the ```benchmarks``` folder.
 
 ## Credits
 

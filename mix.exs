@@ -32,6 +32,7 @@ defmodule ExXirr.Mixfile do
   defp description do
     "A library to calculate Xirr using the Newton method using parallel processes."
   end
+
   defp package do
     [
       files: ["lib", "bench", "mix.exs", "README*"],
@@ -45,8 +46,9 @@ defmodule ExXirr.Mixfile do
     [
       {:timex, "~> 3.1"},
       {:ex_doc, "~> 0.12", only: :dev},
-      {:excoveralls, "~> 0.8", only: :test},
-      {:benchfella, "~> 0.3.0"}
+      {:benchee, "~> 0.11", only: :dev},
+      {:benchee_html, "~> 0.4", only: :dev},
+      {:excoveralls, "~> 0.8", only: :test}
     ]
   end
 end
