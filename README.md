@@ -43,7 +43,7 @@ The package can be installed as:
     ```
     mix run test/xirr_comparison_bench.exs
     ```
-- The reports are available in the ```benchmarks``` folder.
+- The reports are available [here](https://htmlpreview.github.io/?https://github.com/scripbox/ex-xirr/blob/master/benchmarks/output/results.html).
 
 ## Credits
 
