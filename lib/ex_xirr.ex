@@ -7,6 +7,8 @@ defmodule ExXirr do
   @max_error 1.0e-3
   @days_in_a_year 365
 
+  import :math, only: [pow: 2]
+
   # Public API
 
   @doc """
@@ -19,34 +21,40 @@ defmodule ExXirr do
       iex> v = [1000, -600, -200]
       iex> ExXirr.xirr(d,v)
       {:ok, -0.034592}
+      iex> ExXirr.xirr([], [])
+      {:error, 0.0}
   """
   @spec xirr([Date.t()], [number]) :: float
   def xirr(dates, values) when length(dates) != length(values) do
     {:error, "Date and Value collections must have the same size"}
   end
 
+  def xirr([], _), do: {:error, 0.0}
+
   def xirr(dates, values) when length(dates) < 10 do
     LegacyFinance.xirr(dates, values)
   end
 
   def xirr(dates, values) do
-    dates = Enum.map(dates, &Date.from_erl!(&1))
-    min_date = dates |> List.first()
+    {dates, values} =
+      dates
+      |> Enum.zip(values)
+      |> Enum.sort_by(fn {date, _value} -> date end)
+      |> Enum.unzip()
+
+    dates
+    |> Enum.map(&Date.from_erl!/1)
+    |> do_xirr(values)
+  end
+
+  defp do_xirr([min_date | _] = dates, values) do
     {dates, values, dates_values} = compact_flow(Enum.zip(dates, values), min_date)
 
-    cond do
-      !verify_flow(values) ->
-        {:error, "Values should have at least one positive or negative value."}
-
-      length(dates) - length(values) == 0 && verify_flow(values) ->
-        calculate(:xirr, dates_values, [], guess_rate(dates, values), 0)
-
-      true ->
-        {:error, "Uncaught error"}
+    if is_valid_input?(values) do
+      calculate(:xirr, dates_values, [], guess_rate(dates, values), 0)
+    else
+      {:error, "Values should have at least one positive or negative value."}
     end
-  rescue
-    _ ->
-      {:error, 0.0}
   end
 
   @doc """
@@ -67,7 +75,7 @@ defmodule ExXirr do
   def absolute_rate(rate, days) do
     try do
       if days < @days_in_a_year do
-        {:ok, ((:math.pow(1 + rate, days / @days_in_a_year) - 1) * 100) |> Float.round(2)}
+        {:ok, ((pow(1 + rate, days / @days_in_a_year) - 1) * 100) |> Float.round(2)}
       else
         {:ok, (rate * 100) |> Float.round(2)}
       end
@@ -80,25 +88,19 @@ defmodule ExXirr do
   # Private API
 
   @spec pmap(list(tuple()), fun()) :: Enum.t()
-  defp pmap(collection, function) do
-    me = self()
-
+  defp pmap(collection, func) do
     collection
-    |> Enum.map(fn element -> spawn_link(fn -> send(me, {self(), function.(element)}) end) end)
-    |> Enum.map(fn pid ->
-      receive do
-        {^pid, result} -> result
-      end
-    end)
+    |> Task.async_stream(func)
+    |> Enum.map(&elem(&1, 1))
   end
 
   @spec power_of(float(), Fraction.t()) :: float()
   defp power_of(rate, fraction) when rate < 0 do
-    :math.pow(-rate, Fraction.to_float(fraction)) * :math.pow(-1, fraction.num)
+    pow(-rate, Fraction.to_float(fraction)) * pow(-1, fraction.num)
   end
 
   defp power_of(rate, fraction) do
-    :math.pow(rate, Fraction.to_float(fraction))
+    pow(rate, Fraction.to_float(fraction))
   end
 
   @spec xirr_reduction({Fraction.t(), float(), float()}) :: float()
@@ -109,19 +111,20 @@ defmodule ExXirr do
   @spec dxirr_reduction({Fraction.t(), float(), float()}) :: float()
   defp dxirr_reduction({fraction, value, rate}) do
     -value * Fraction.to_float(fraction) * power_of(1.0 + rate, Fraction.negative(fraction)) *
-      :math.pow(1.0 + rate, -1)
+      pow(1.0 + rate, -1)
   end
 
   @spec compact_flow(list(), Date.t()) :: tuple()
   defp compact_flow(dates_values, min_date) do
-    flow = Enum.reduce(dates_values, %{}, &organize_value(&1, &2, min_date))
+    flow = Enum.reduce(dates_values, %{}, fn date_value, acc ->
+      fraction_of!(acc, date_value, min_date)
+    end)
+
     {Map.keys(flow), Map.values(flow), Enum.filter(flow, &(elem(&1, 1) != 0))}
   end
 
-  @spec organize_value(tuple(), map(), Date.t()) :: map()
-  defp organize_value(date_value, dict, min_date) do
-    {date, value} = date_value
-
+  @spec fraction_of!(map(), tuple(), Date.t()) :: map()
+  defp fraction_of!(dict, {date, value}, min_date) do
     fraction = %Fraction{
       num: Date.diff(date, min_date),
       den: 365.0
@@ -130,8 +133,8 @@ defmodule ExXirr do
     Map.update(dict, fraction, value, &(value + &1))
   end
 
-  @spec verify_flow(list(float())) :: boolean()
-  defp verify_flow(values) do
+  @spec is_valid_input?(list(float())) :: boolean()
+  defp is_valid_input?(values) do
     {min, max} = Enum.min_max(values)
     min < 0 && max > 0
   end
@@ -141,7 +144,7 @@ defmodule ExXirr do
     {min_value, max_value} = Enum.min_max(values)
     period = 1 / (length(dates) - 1)
     multiple = 1 + abs(max_value / min_value)
-    rate = :math.pow(multiple, period) - 1
+    rate = pow(multiple, period) - 1
     Float.round(rate, 6)
   end
 

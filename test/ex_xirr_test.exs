@@ -14,12 +14,14 @@ defmodule ExXirrTest do
     test "impossible returns on investments" do
       d = [{2015, 11, 1}, {2015, 10, 1}, {2015, 6, 1}]
       v = [-800_000, -2_200_000, 1_000_000]
+
       assert ExXirr.xirr(d, v) == {:ok, 21.118359}
     end
 
     test "bad investment" do
       d = [{1985, 1, 1}, {1990, 1, 1}, {1995, 1, 1}]
       v = [1000, -600, -200]
+
       assert ExXirr.xirr(d, v) == {:ok, -0.034592}
     end
 
@@ -39,6 +41,7 @@ defmodule ExXirrTest do
 
     test "long investment" do
       v = [
+        0,
         105_187.06,
         816_709.66,
         479_069.684,
@@ -76,6 +79,7 @@ defmodule ExXirrTest do
       ]
 
       d = [
+        {2011, 12, 07},
         {2011, 12, 07},
         {2011, 12, 07},
         {2011, 12, 07},
@@ -155,6 +159,7 @@ defmodule ExXirrTest do
     test "fail when the rate is too large" do
       d = [{2017, 1, 1}, {2017, 1, 5}]
       v = [10000, -11000]
+
       assert ExXirr.xirr(d, v) == {:error, "Unable to converge"}
     end
   end
