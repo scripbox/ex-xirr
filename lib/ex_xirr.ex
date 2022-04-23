@@ -79,19 +79,6 @@ defmodule ExXirr do
 
   # Private API
 
-  @spec pmap(list(tuple()), fun()) :: Enum.t()
-  defp pmap(collection, function) do
-    me = self()
-
-    collection
-    |> Enum.map(fn element -> spawn_link(fn -> send(me, {self(), function.(element)}) end) end)
-    |> Enum.map(fn pid ->
-      receive do
-        {^pid, result} -> result
-      end
-    end)
-  end
-
   @spec power_of(float(), Fraction.t()) :: float()
   defp power_of(rate, fraction) when rate < 0 do
     :math.pow(-rate, Fraction.to_float(fraction)) * :math.pow(-1, fraction.num)
@@ -149,27 +136,27 @@ defmodule ExXirr do
   defp reduce_date_values(dates_values, rate) do
     calculated_xirr =
       dates_values
-      |> pmap(fn x ->
+      |> Enum.map(fn x ->
         {
           elem(x, 0),
           elem(x, 1),
           rate
         }
       end)
-      |> pmap(&xirr_reduction/1)
+      |> Enum.map(&xirr_reduction/1)
       |> Enum.sum()
       |> Float.round(6)
 
     calculated_dxirr =
       dates_values
-      |> pmap(fn x ->
+      |> Enum.map(fn x ->
         {
           elem(x, 0),
           elem(x, 1),
           rate
         }
       end)
-      |> pmap(&dxirr_reduction/1)
+      |> Enum.map(&dxirr_reduction/1)
       |> Enum.sum()
       |> Float.round(6)
 

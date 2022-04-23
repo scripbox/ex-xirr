@@ -8,22 +8,6 @@ defmodule LegacyFinance do
   @type rate :: float
   @type date :: Date.t()
 
-  defp pmap(collection, function) do
-    me = self()
-
-    collection
-    |> Enum.map(fn element ->
-      spawn_link(fn ->
-        send(me, {self(), function.(element)})
-      end)
-    end)
-    |> Enum.map(fn pid ->
-      receive do
-        {^pid, result} -> result
-      end
-    end)
-  end
-
   defp xirr_reduction({period, value, rate}), do: value / :math.pow(1 + rate, period)
 
   @doc """
@@ -43,7 +27,7 @@ defmodule LegacyFinance do
   def xirr(dates, values) do
     dates =
       dates
-      |> pmap(&Date.from_erl!/1)
+      |> Enum.map(&Date.from_erl!/1)
 
     min_date = Enum.min(dates)
     {dates, values, dates_values} = compact_flow(Enum.zip(dates, values), min_date)
@@ -104,14 +88,14 @@ defmodule LegacyFinance do
 
     acc =
       list
-      |> pmap(fn x ->
+      |> Enum.map(fn x ->
         {
           elem(x, 0),
           elem(x, 1),
           rate
         }
       end)
-      |> pmap(&xirr_reduction/1)
+      |> Enum.map(&xirr_reduction/1)
       |> Enum.sum()
       |> Float.round(4)
 
