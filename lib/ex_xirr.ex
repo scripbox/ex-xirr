@@ -27,6 +27,11 @@ defmodule ExXirr do
 
   def xirr(dates, values) when length(dates) < 10 do
     LegacyFinance.xirr(dates, values)
+  rescue
+    e in _ ->
+      error_message = Kernel.inspect(e)
+
+      {:error, "#{inspect(error_message)}"}
   end
 
   def xirr(dates, values) do
@@ -45,8 +50,10 @@ defmodule ExXirr do
         {:error, "Uncaught error"}
     end
   rescue
-    _ ->
-      {:error, 0.0}
+    e in _ ->
+      error_message = Kernel.inspect(e)
+
+      {:error, "#{inspect(error_message)}"}
   end
 
   @doc """
@@ -72,8 +79,10 @@ defmodule ExXirr do
         {:ok, (rate * 100) |> Float.round(2)}
       end
     rescue
-      _ ->
-        {:error, 0.0}
+      e in _ ->
+        error_message = Kernel.inspect(e)
+
+        {:error, "#{inspect(error_message)}"}
     end
   end
 
