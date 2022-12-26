@@ -157,5 +157,14 @@ defmodule ExXirrTest do
       v = [10000, -11000]
       assert ExXirr.xirr(d, v) == {:error, "Unable to converge"}
     end
+
+    test "check for arithmetic error for negative closing value" do
+      d = [{1995, 10, 16}, {2003, 11, 14}, {2016, 11, 2}, {2022, 12, 26}]
+      v = [1000, 0.0, -13511.34, 17034.345]
+
+      assert ExXirr.xirr(d, v) ==
+               {:error,
+                "\"%ArithmeticError{message: \\\"bad argument in arithmetic expression\\\"}\""}
+    end
   end
 end
