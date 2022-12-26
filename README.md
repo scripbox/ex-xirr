@@ -1,7 +1,7 @@
 # ExXirr
 [![codecov](https://codecov.io/gh/scripbox/ex-xirr/branch/master/graph/badge.svg)](https://codecov.io/gh/scripbox/ex-xirr) ![Hex.pm](https://img.shields.io/hexpm/dt/ex_xirr.svg) ![Travis](https://img.shields.io/travis/scripbox/ex-xirr.svg)
 
-A library to calculate xirr through the Newton Raphson using parallel processes.
+A library to calculate xirr using the [Newton Raphson method](https://en.wikipedia.org/wiki/Newton%27s_method).
 
 ## Usage
 
