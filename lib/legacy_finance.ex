@@ -51,7 +51,7 @@ defmodule LegacyFinance do
   end
 
   defp organize_value({date, value}, map, min_date) do
-    days = Timex.diff(date, min_date, :days) / 365.0
+    days = Date.diff(date, min_date) / 365.0
     Map.update(map, days, value, &(value + &1))
   end
 
@@ -115,31 +115,36 @@ defmodule LegacyFinance do
   defp calculate(:xirr, dates_values, _acc, {rate, bottom, upper}, tries) do
     acc = reduce_date_values(dates_values, rate)
 
-    resp =
-      cond do
-        acc < 0 ->
-          # upper = rate
-          # rate = (bottom + rate) / 2
-          {(bottom + rate) / 2, bottom, rate}
+    # Check for convergence with a small epsilon
+    if abs(acc) < 1.0e-6 do
+      {:ok, Float.round(rate, 6)}
+    else
+      resp =
+        cond do
+          acc < 0 ->
+            # upper = rate
+            # rate = (bottom + rate) / 2
+            {(bottom + rate) / 2, bottom, rate}
 
-        acc > 0 && reached_boundry(rate, upper) ->
-          # bottom = rate
-          # rate = (rate + upper) / 2
-          # upper = upper + 1
-          {(rate + upper) / 2, rate, upper + 1}
+          acc > 0 && reached_boundry(rate, upper) ->
+            # bottom = rate
+            # rate = (rate + upper) / 2
+            # upper = upper + 1
+            {(rate + upper) / 2, rate, upper + 1}
 
-        acc > 0 && !reached_boundry(rate, upper) ->
-          # bottom = rate
-          # rate = (rate + upper) / 2
-          {(rate + upper) / 2, rate, upper}
+          acc > 0 && !reached_boundry(rate, upper) ->
+            # bottom = rate
+            # rate = (rate + upper) / 2
+            {(rate + upper) / 2, rate, upper}
 
-        acc == 0.0 ->
-          # rate
-          {rate, bottom, upper}
-      end
+          acc == 0.0 ->
+            # rate
+            {rate, bottom, upper}
+        end
 
-    tries = tries + 1
-    calculate(:xirr, dates_values, acc, resp, tries)
+      tries = tries + 1
+      calculate(:xirr, dates_values, acc, resp, tries)
+    end
   end
 end
 
