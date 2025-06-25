@@ -26,7 +26,7 @@ defmodule ExXirr.Mixfile do
   end
 
   def application do
-    [applications: [:logger]]
+    [extra_applications: [:logger]]
   end
 
   defp description do
@@ -38,13 +38,13 @@ defmodule ExXirr.Mixfile do
       files: ["lib", "bench", "mix.exs", "README*"],
       maintainers: ["Shubham Gupta"],
       licenses: ["MIT"],
-      links: %{"GitHub" => "https://github.com/scripbox/ex-elixir"}
+      links: %{"GitHub" => "https://github.com/scripbox/ex-xirr"}
     ]
   end
 
   defp deps do
     [
-      {:timex, "~> 3.1"},
+      {:timex, "~> 3.7.13", optional: true},
       {:ex_doc, "~> 0.12", only: :dev},
       {:benchee, "~> 0.11", only: :dev},
       {:benchee_html, "~> 0.4", only: :dev},

@@ -7,3 +7,5 @@ erl_crash.dump
 *.ez
 *.swp
 snapshots/*
+/.direnv/
+/.envrc

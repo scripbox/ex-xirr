@@ -1,6 +1,4 @@
 defmodule LegacyFinance do
-  use Timex
-
   @moduledoc """
   Library to calculate IRR through the Bisection method.
   """
@@ -102,7 +100,7 @@ defmodule LegacyFinance do
     acc * first_value_sign(dates_values)
   end
 
-  defp calculate(:xirr, _date_values, 0.0, {rate, _bottom, _upper}, _tries) do
+  defp calculate(:xirr, _date_values, +0.0, {rate, _bottom, _upper}, _tries) do
     {:ok, Float.round(rate, 6)}
   end
 
