@@ -23,23 +23,33 @@ defmodule LegacyFinance do
   end
 
   def xirr(dates, values) do
-    dates =
-      dates
-      |> Enum.map(&Date.from_erl!/1)
+    # Filter out nil values early
+    filtered_pairs =
+      Enum.zip(dates, values) |> Enum.reject(fn {_date, value} -> is_nil(value) end)
 
-    min_date = Enum.min(dates)
-    {dates, values, dates_values} = compact_flow(Enum.zip(dates, values), min_date)
+    if length(filtered_pairs) == 0 do
+      {:error, "No valid date-value pairs after filtering nil values"}
+    else
+      {dates, values} = Enum.unzip(filtered_pairs)
 
-    cond do
-      !verify_flow(values) ->
-        {:error, "Values should have at least one positive or negative value."}
+      dates =
+        dates
+        |> Enum.map(&Date.from_erl!/1)
 
-      length(dates) - length(values) == 0 && verify_flow(values) ->
-        boundries = {guess_rate(dates, values), -1.0, +1.0}
-        calculate(:xirr, dates_values, [], boundries, 0)
+      min_date = Enum.min(dates)
+      {dates, values, dates_values} = compact_flow(Enum.zip(dates, values), min_date)
 
-      true ->
-        {:error, "Uncaught error"}
+      cond do
+        !verify_flow(values) ->
+          {:error, "Values should have at least one positive or negative value."}
+
+        length(dates) - length(values) == 0 && verify_flow(values) ->
+          boundries = {guess_rate(dates, values), -1.0, +1.0}
+          calculate(:xirr, dates_values, [], boundries, 0)
+
+        true ->
+          {:error, "Uncaught error"}
+      end
     end
   end
 
@@ -51,8 +61,13 @@ defmodule LegacyFinance do
   end
 
   defp organize_value({date, value}, map, min_date) do
-    days = Date.diff(date, min_date) / 365.0
-    Map.update(map, days, value, &(value + &1))
+    # Guard against nil values
+    if is_nil(value) do
+      map
+    else
+      days = Date.diff(date, min_date) / 365.0
+      Map.update(map, days, value, &(value + &1))
+    end
   end
 
   defp verify_flow(values) do
@@ -63,7 +78,17 @@ defmodule LegacyFinance do
   defp guess_rate(dates, values) do
     {min_value, max_value} = Enum.min_max(values)
     period = 1 / (length(dates) - 1)
-    multiple = 1 + abs(max_value / min_value)
+
+    # Guard against division by zero or nil values
+    multiple =
+      cond do
+        # Default fallback
+        min_value == 0 or min_value == nil -> 2.0
+        # Default fallback
+        max_value == nil -> 2.0
+        true -> 1 + abs(max_value / min_value)
+      end
+
     rate = :math.pow(multiple, period) - 1
     Float.round(rate, 3)
   end

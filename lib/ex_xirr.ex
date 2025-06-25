@@ -35,19 +35,29 @@ defmodule ExXirr do
   end
 
   def xirr(dates, values) do
-    dates = Enum.map(dates, &Date.from_erl!(&1))
-    min_date = dates |> List.first()
-    {dates, values, dates_values} = compact_flow(Enum.zip(dates, values), min_date)
+    # Filter out nil values early
+    filtered_pairs =
+      Enum.zip(dates, values) |> Enum.reject(fn {_date, value} -> is_nil(value) end)
 
-    cond do
-      !verify_flow(values) ->
-        {:error, "Values should have at least one positive or negative value."}
+    if length(filtered_pairs) == 0 do
+      {:error, "No valid date-value pairs after filtering nil values"}
+    else
+      {dates, values} = Enum.unzip(filtered_pairs)
 
-      length(dates) - length(values) == 0 && verify_flow(values) ->
-        calculate(:xirr, dates_values, [], guess_rate(dates, values), 0)
+      dates = Enum.map(dates, &Date.from_erl!(&1))
+      min_date = dates |> List.first()
+      {dates, values, dates_values} = compact_flow(Enum.zip(dates, values), min_date)
 
-      true ->
-        {:error, "Uncaught error"}
+      cond do
+        !verify_flow(values) ->
+          {:error, "Values should have at least one positive or negative value."}
+
+        length(dates) - length(values) == 0 && verify_flow(values) ->
+          calculate(:xirr, dates_values, [], guess_rate(dates, values), 0)
+
+        true ->
+          {:error, "Uncaught error"}
+      end
     end
   rescue
     e in _ ->
@@ -118,12 +128,17 @@ defmodule ExXirr do
   defp organize_value(date_value, dict, min_date) do
     {date, value} = date_value
 
-    fraction = %Fraction{
-      num: Date.diff(date, min_date),
-      den: 365.0
-    }
+    # Guard against nil values
+    if is_nil(value) do
+      dict
+    else
+      fraction = %Fraction{
+        num: Date.diff(date, min_date),
+        den: 365.0
+      }
 
-    Map.update(dict, fraction, value, &(value + &1))
+      Map.update(dict, fraction, value, &(value + &1))
+    end
   end
 
   @spec verify_flow(list(float())) :: boolean()
@@ -136,7 +151,17 @@ defmodule ExXirr do
   defp guess_rate(dates, values) do
     {min_value, max_value} = Enum.min_max(values)
     period = 1 / (length(dates) - 1)
-    multiple = 1 + abs(max_value / min_value)
+
+    # Guard against division by zero or nil values
+    multiple =
+      cond do
+        # Default fallback
+        min_value == 0 or min_value == nil -> 2.0
+        # Default fallback
+        max_value == nil -> 2.0
+        true -> 1 + abs(max_value / min_value)
+      end
+
     rate = :math.pow(multiple, period) - 1
     Float.round(rate, 6)
   end
