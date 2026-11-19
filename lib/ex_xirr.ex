@@ -4,7 +4,10 @@ defmodule ExXirr do
   through the Newton Raphson method.
   """
 
-  @max_error 1.0e-3
+  # Leave headroom for rounding the converged rate to six decimal places.
+  @npv_relative_tolerance 1.0e-13
+  @max_iterations 300
+  @max_step_halvings 8
   @days_in_a_year 365
 
   # Public API
@@ -53,7 +56,17 @@ defmodule ExXirr do
           {:error, "Values should have at least one positive or negative value."}
 
         length(dates) - length(values) == 0 && verify_flow(values) ->
-          calculate(:xirr, dates_values, [], guess_rate(dates, values), 0)
+          case calculate(dates_values, guess_rate(dates, values), 0) do
+            {:ok, _} = result ->
+              result
+
+            {:error, _} = failure ->
+              # A positive starting rate can overshoot a deeply negative root.
+              case calculate(dates_values, -0.9, 0) do
+                {:ok, _} = result -> result
+                {:error, _} -> failure
+              end
+          end
 
         true ->
           {:error, "Uncaught error"}
@@ -97,26 +110,6 @@ defmodule ExXirr do
   end
 
   # Private API
-
-  @spec power_of(float(), Fraction.t()) :: float()
-  defp power_of(rate, fraction) when rate < 0 do
-    :math.pow(-rate, Fraction.to_float(fraction)) * :math.pow(-1, fraction.num)
-  end
-
-  defp power_of(rate, fraction) do
-    :math.pow(rate, Fraction.to_float(fraction))
-  end
-
-  @spec xirr_reduction({Fraction.t(), float(), float()}) :: float()
-  defp xirr_reduction({fraction, value, rate}) do
-    value / power_of(1.0 + rate, fraction)
-  end
-
-  @spec dxirr_reduction({Fraction.t(), float(), float()}) :: float()
-  defp dxirr_reduction({fraction, value, rate}) do
-    -value * Fraction.to_float(fraction) * power_of(1.0 + rate, Fraction.negative(fraction)) *
-      :math.pow(1.0 + rate, -1)
-  end
 
   @spec compact_flow(list(), Date.t()) :: tuple()
   defp compact_flow(dates_values, min_date) do
@@ -166,56 +159,91 @@ defmodule ExXirr do
     Float.round(rate, 6)
   end
 
-  @spec reduce_date_values(list(), float()) :: tuple()
-  defp reduce_date_values(dates_values, rate) do
-    calculated_xirr =
-      dates_values
-      |> Enum.map(fn x ->
-        {
-          elem(x, 0),
-          elem(x, 1),
-          rate
-        }
-      end)
-      |> Enum.map(&xirr_reduction/1)
-      |> Enum.sum()
-      |> Float.round(6)
+  defp reduce_date_values(dates_values, base) do
+    Enum.reduce(dates_values, {0.0, 0.0, 0.0}, fn {fraction, amount},
+                                                  {npv, scaled_derivative, scale} ->
+      period = Fraction.to_float(fraction)
+      discounted = amount / :math.pow(base, period)
 
-    calculated_dxirr =
-      dates_values
-      |> Enum.map(fn x ->
-        {
-          elem(x, 0),
-          elem(x, 1),
-          rate
-        }
-      end)
-      |> Enum.map(&dxirr_reduction/1)
-      |> Enum.sum()
-      |> Float.round(6)
-
-    {calculated_xirr, calculated_dxirr}
+      {npv + discounted, scaled_derivative - period * discounted, scale + abs(discounted)}
+    end)
   end
 
-  @spec calculate(atom(), list(), float(), float(), integer()) ::
-          {:ok, float()} | {:error, String.t()}
-  defp calculate(:xirr, _, +0.0, rate, _), do: {:ok, Float.round(rate, 6)}
-  defp calculate(:xirr, _, _, -1.0, _), do: {:error, "Could not converge"}
-  defp calculate(:xirr, _, _, _, 300), do: {:error, "I give up"}
+  defp calculate(dates_values, rate, tries) do
+    case evaluate(dates_values, rate) do
+      {:ok, npv, derivative, residual} ->
+        calculate(dates_values, rate, npv, derivative, residual, tries)
 
-  defp calculate(:xirr, dates_values, _, rate, tries) do
-    {xirr, dxirr} = reduce_date_values(dates_values, rate)
+      :error ->
+        {:error, "Could not converge"}
+    end
+  end
 
-    new_rate =
-      if dxirr < 0.0 do
-        rate
-      else
-        rate - xirr / dxirr
-      end
+  defp calculate(_, _, _, _, _, @max_iterations), do: {:error, "I give up"}
 
-    diff = Kernel.abs(new_rate - rate)
-    diff = if diff < @max_error, do: 0.0
-    tries = tries + 1
-    calculate(:xirr, dates_values, diff, new_rate, tries)
+  defp calculate(dates_values, rate, npv, derivative, residual, tries) do
+    cond do
+      residual <= @npv_relative_tolerance ->
+        rounded_rate = Float.round(rate, 6)
+
+        # Rounding can turn a valid iterate into the singular rate -1.0.
+        if rounded_rate > -1.0, do: {:ok, rounded_rate}, else: {:error, "Could not converge"}
+
+      derivative == 0.0 ->
+        {:error, "Could not converge"}
+
+      true ->
+        with {:ok, step} <- newton_step(rate, npv, derivative),
+             {:ok, next_rate, next_npv, next_derivative, next_residual} <-
+               improve(dates_values, rate, step, abs(npv), @max_step_halvings) do
+          calculate(dates_values, next_rate, next_npv, next_derivative, next_residual, tries + 1)
+        else
+          :error -> {:error, "Could not converge"}
+        end
+    end
+  end
+
+  defp evaluate(dates_values, rate) when rate > -1.0 do
+    {npv, derivative, scale} = reduce_date_values(dates_values, 1.0 + rate)
+    if scale > 0.0, do: {:ok, npv, derivative, abs(npv) / scale}, else: :error
+  rescue
+    ArithmeticError -> :error
+  end
+
+  defp evaluate(_, _), do: :error
+
+  # The NPV derivative is scaled_derivative / (1 + rate).
+  defp newton_step(rate, npv, scaled_derivative) do
+    {:ok, npv / scaled_derivative * (1.0 + rate)}
+  rescue
+    ArithmeticError -> :error
+  end
+
+  # Newton follows the raw NPV, not the normalized residual: its denominator
+  # changes with the rate and can grow faster than the NPV moves toward zero.
+  defp improve(dates_values, rate, step, abs_npv, halvings) do
+    case evaluate_step(dates_values, rate, step) do
+      {:ok, _, next_npv, _, _} = next when abs(next_npv) < abs_npv ->
+        next
+
+      _ when halvings > 0 ->
+        improve(dates_values, rate, step / 2.0, abs_npv, halvings - 1)
+
+      _ ->
+        :error
+    end
+  end
+
+  defp evaluate_step(dates_values, rate, step) do
+    next_rate = rate - step
+
+    with true <- next_rate != rate,
+         {:ok, npv, derivative, residual} <- evaluate(dates_values, next_rate) do
+      {:ok, next_rate, npv, derivative, residual}
+    else
+      _ -> :error
+    end
+  rescue
+    ArithmeticError -> :error
   end
 end

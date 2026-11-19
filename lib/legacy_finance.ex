@@ -6,7 +6,8 @@ defmodule LegacyFinance do
   @type rate :: float
   @type date :: Date.t()
 
-  defp xirr_reduction({period, value, rate}), do: value / :math.pow(1 + rate, period)
+  @npv_relative_tolerance 1.0e-13
+  @half_rate_unit 0.0000005
 
   @doc """
   Function to calculate the XIRR for a given array of dates and values.
@@ -44,8 +45,8 @@ defmodule LegacyFinance do
           {:error, "Values should have at least one positive or negative value."}
 
         length(dates) - length(values) == 0 && verify_flow(values) ->
-          boundries = {guess_rate(dates, values), -1.0, +1.0}
-          calculate(:xirr, dates_values, [], boundries, 0)
+          bounds = {guess_rate(dates, values), -1.0, 1.0, false}
+          calculate(dates_values, first_value_sign(dates_values), bounds, 0)
 
         true ->
           {:error, "Uncaught error"}
@@ -107,68 +108,79 @@ defmodule LegacyFinance do
   end
 
   defp reduce_date_values(dates_values, rate) do
-    list = dates_values
+    base = 1.0 + rate
 
-    acc =
-      list
-      |> Enum.map(fn x ->
-        {
-          elem(x, 0),
-          elem(x, 1),
-          rate
-        }
-      end)
-      |> Enum.map(&xirr_reduction/1)
-      |> Enum.sum()
-      |> Float.round(4)
-
-    acc * first_value_sign(dates_values)
+    Enum.reduce(dates_values, {0.0, 0.0}, fn {period, value}, {npv, scale} ->
+      discounted = value / :math.pow(base, period)
+      {npv + discounted, scale + abs(discounted)}
+    end)
   end
 
-  defp calculate(:xirr, _date_values, +0.0, {rate, _bottom, _upper}, _tries) do
-    {:ok, Float.round(rate, 6)}
-  end
+  defp calculate(_, _, {rate, _, _, _}, _) when rate <= -1.0,
+    do: {:error, "Could not converge"}
 
-  defp calculate(:xirr, _date_values, _acc, {-1.0, _bottom, _upper}, _tries) do
-    {:error, "Could not converge"}
-  end
+  defp calculate(_, _, _, 300), do: {:error, "Unable to converge"}
 
-  defp calculate(:xirr, _date_values, _acc, {_, _, _}, 300) do
-    {:error, "Unable to converge"}
-  end
+  defp calculate(dates_values, sign, {rate, bottom, upper, bracketed?}, tries) do
+    {npv, scale} = reduce_date_values(dates_values, rate)
 
-  defp calculate(:xirr, dates_values, _acc, {rate, bottom, upper}, tries) do
-    acc = reduce_date_values(dates_values, rate)
+    candidate =
+      if scale > 0.0 and abs(npv) <= @npv_relative_tolerance * scale do
+        Float.round(rate, 6)
+      end
 
-    # Check for convergence with a small epsilon
-    if abs(acc) < 1.0e-6 do
-      {:ok, Float.round(rate, 6)}
-    else
-      resp =
-        cond do
-          acc < 0 ->
-            # upper = rate
-            # rate = (bottom + rate) / 2
-            {(bottom + rate) / 2, bottom, rate}
+    cond do
+      candidate != nil and candidate <= -1.0 ->
+        {:error, "Could not converge"}
 
-          acc > 0 && reached_boundry(rate, upper) ->
-            # bottom = rate
-            # rate = (rate + upper) / 2
-            # upper = upper + 1
-            {(rate + upper) / 2, rate, upper + 1}
+      candidate != nil and verified_rounding?(dates_values, candidate) ->
+        {:ok, candidate}
 
-          acc > 0 && !reached_boundry(rate, upper) ->
-            # bottom = rate
-            # rate = (rate + upper) / 2
-            {(rate + upper) / 2, rate, upper}
+      npv == 0.0 ->
+        {:error, "Could not converge"}
 
-          acc == 0.0 ->
-            # rate
-            {rate, bottom, upper}
+      true ->
+        acc = npv * sign
+
+        next =
+          cond do
+            acc < 0 ->
+              {(bottom + rate) / 2, bottom, rate, true}
+
+            # Once we have sampled the upper bound, keep narrowing the interval.
+            not bracketed? and reached_boundry(rate, upper) ->
+              {(rate + upper) / 2, rate, upper * 2.0, false}
+
+            true ->
+              {(rate + upper) / 2, rate, upper, bracketed?}
+          end
+
+        if next == {rate, bottom, upper, bracketed?} do
+          rounded_rate = Float.round(rate, 6)
+
+          if verified_rounding?(dates_values, rounded_rate) do
+            {:ok, rounded_rate}
+          else
+            {:error, "Unable to converge"}
+          end
+        else
+          calculate(dates_values, sign, next, tries + 1)
         end
+    end
+  end
 
-      tries = tries + 1
-      calculate(:xirr, dates_values, acc, resp, tries)
+  defp verified_rounding?(_, rate) when rate <= -1.0, do: false
+
+  defp verified_rounding?(dates_values, rate) do
+    {npv, scale} = reduce_date_values(dates_values, rate)
+
+    if scale > 0.0 and abs(npv) <= @npv_relative_tolerance * scale do
+      true
+    else
+      # A six-decimal result represents any root within half a unit of it.
+      {left, _} = reduce_date_values(dates_values, rate - @half_rate_unit)
+      {right, _} = reduce_date_values(dates_values, rate + @half_rate_unit)
+      min(left, right) <= 0.0 and max(left, right) >= 0.0
     end
   end
 end
