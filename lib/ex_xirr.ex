@@ -56,7 +56,17 @@ defmodule ExXirr do
           {:error, "Values should have at least one positive or negative value."}
 
         length(dates) - length(values) == 0 && verify_flow(values) ->
-          calculate(dates_values, guess_rate(dates, values), 0)
+          case calculate(dates_values, guess_rate(dates, values), 0) do
+            {:ok, _} = result ->
+              result
+
+            {:error, _} = failure ->
+              # A positive starting rate can overshoot a deeply negative root.
+              case calculate(dates_values, -0.9, 0) do
+                {:ok, _} = result -> result
+                {:error, _} -> failure
+              end
+          end
 
         true ->
           {:error, "Uncaught error"}

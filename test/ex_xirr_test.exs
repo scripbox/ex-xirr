@@ -180,6 +180,13 @@ defmodule ExXirrTest do
       assert {:error, _} = ExXirr.xirr(dates, [1_000, -0.0001])
     end
 
+    test "Newton retries from a negative guess after overshooting" do
+      dates = for year <- 0..9, do: Date.add(~D[2010-01-01], 365 * year) |> Date.to_erl()
+      amounts = [1_000 | List.duplicate(0, 8)] ++ [-1_000 * :math.pow(0.2, 9)]
+
+      assert ExXirr.xirr(dates, amounts) == {:ok, -0.8}
+    end
+
     test "wrong size" do
       d = [
         {2014, 04, 15},
@@ -217,10 +224,10 @@ defmodule ExXirrTest do
       assert ExXirr.xirr(d, v) == {:ok, 0.123631}
     end
 
-    test "fail when the rate is too large" do
+    test "bisection expands the search for a high annualized rate" do
       d = [{2017, 1, 1}, {2017, 1, 5}]
       v = [10000, -11000]
-      assert ExXirr.xirr(d, v) == {:error, "Unable to converge"}
+      assert ExXirr.xirr(d, v) == {:ok, 5984.253106}
     end
 
     test "check for arithmetic error for negative closing value" do

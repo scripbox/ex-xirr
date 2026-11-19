@@ -149,7 +149,7 @@ defmodule LegacyFinance do
 
             # Once we have sampled the upper bound, keep narrowing the interval.
             not bracketed? and reached_boundry(rate, upper) ->
-              {(rate + upper) / 2, rate, upper + 1, false}
+              {(rate + upper) / 2, rate, upper * 2.0, false}
 
             true ->
               {(rate + upper) / 2, rate, upper, bracketed?}
