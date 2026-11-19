@@ -157,6 +157,29 @@ defmodule ExXirrTest do
       end
     end
 
+    test "bisection returns the same rate across cash-flow scales" do
+      dates = [{2010, 1, 1}, {2010, 2, 19}]
+      closing = 50 * :math.pow(1 - 0.09012991845, 49 / 365)
+
+      for scale <- [1.0e-8, 1.0, 1.0e8] do
+        assert ExXirr.xirr(dates, [50 * scale, -closing * scale]) == {:ok, -0.09013}
+      end
+    end
+
+    test "bisection does not accept small cash flows with no root" do
+      dates = for year <- 0..2, do: Date.add(~D[2010-01-01], 365 * year) |> Date.to_erl()
+
+      # In q = 1 / (1 + rate), the NPV is 1.0e-6 * ((q - 1)^2 + 0.01).
+      assert {:error, _} = ExXirr.xirr(dates, [1.01e-6, -2.0e-6, 1.0e-6])
+    end
+
+    test "bisection never returns a rate that rounds to -100%" do
+      dates = [{2010, 1, 1}, {2011, 1, 1}]
+
+      assert ExXirr.xirr(dates, [1_000, -0.001]) == {:ok, -0.999999}
+      assert {:error, _} = ExXirr.xirr(dates, [1_000, -0.0001])
+    end
+
     test "wrong size" do
       d = [
         {2014, 04, 15},
