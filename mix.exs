@@ -10,18 +10,24 @@ defmodule ExXirr.Mixfile do
       start_permanent: Mix.env() == :prod,
       description: description(),
       test_coverage: [tool: ExCoveralls],
+      test_ignore_filters: ["test/xirr_comparison_bench.exs"],
       docs: [
         main: "readme",
         extras: ["README.md"]
       ],
-      preferred_cli_env: [
+      package: package(),
+      deps: deps()
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
         coveralls: :test,
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test
-      ],
-      package: package(),
-      deps: deps()
+      ]
     ]
   end
 
